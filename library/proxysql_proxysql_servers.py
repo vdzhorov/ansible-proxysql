@@ -5,6 +5,8 @@
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
+from distutils.version import LooseVersion
+
 DOCUMENTATION = '''
 ---
 module: proxysql_proxysql_servers
@@ -98,6 +100,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.mysql import mysql_connect, mysql_driver, mysql_driver_fail_msg
 from ansible.module_utils.six import iteritems
 from ansible.module_utils._text import to_native
+from ansible.module_utils.ansible_release import __version__ as ansible_version
 
 
 # ===========================================
@@ -163,6 +166,10 @@ class ProxySQLServer(object):
 
         cursor.execute(query_string, query_data)
         check_count = cursor.fetchone()
+
+        if isinstance(check_count, tuple):
+            return int(check_count[0]) > 0
+
         return (int(check_count['host_count']) > 0)
 
     def check_server_config(self, cursor):
@@ -183,6 +190,10 @@ class ProxySQLServer(object):
 
         cursor.execute(query_string, query_data)
         check_count = cursor.fetchone()
+
+        if isinstance(check_count, tuple):
+            return int(check_count[0]) > 0
+
         return (int(check_count['host_count']) > 0)
 
     def get_server_config(self, cursor):
@@ -352,11 +363,18 @@ def main():
 
     cursor = None
     try:
-        cursor = mysql_connect(module,
-                               login_user,
-                               login_password,
-                               config_file,
-                               cursor_class=mysql_driver.cursors.DictCursor)
+        if LooseVersion(ansible_version) > LooseVersion('2.9.27'):
+            cursor, conn = mysql_connect(module,
+                                   login_user,
+                                   login_password,
+                                   config_file,
+                                   cursor_class=mysql_driver.cursors.DictCursor)
+        else:
+            cursor = mysql_connect(module,
+                                   login_user,
+                                   login_password,
+                                   config_file,
+                                   cursor_class=mysql_driver.cursors.DictCursor)
     except mysql_driver.Error as e:
         module.fail_json(
             msg="Unable to connect to ProxySQL Admin Module.. %s" % to_native(e)
